@@ -134,7 +134,7 @@ jobs:
         grep "APP_.*_SERVERURL" deploy/compose/.env.cloud
 
     - name: Upload cloud configuration
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: cloud-config-${{ needs.setup.outputs.pipeline-id }}
         path: deploy/compose/.env.cloud
@@ -213,7 +213,7 @@ jobs:
         git lfs pull
 
     - name: Download cloud configuration
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: cloud-config-${{ needs.setup.outputs.pipeline-id }}
         path: deploy/compose/
@@ -272,7 +272,7 @@ jobs:
         git lfs pull
 
     - name: Download cloud configuration
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: cloud-config-${{ needs.setup.outputs.pipeline-id }}
         path: deploy/compose/
@@ -464,7 +464,7 @@ jobs:
 
     - name: Upload manual validation results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: manual-validation-${{ needs.setup.outputs.pipeline-id }}
         path: validation-results/
@@ -592,7 +592,7 @@ jobs:
 
     - name: Upload notebook results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: notebook-validation-${{ needs.setup.outputs.pipeline-id }}
         path: notebook-results/
@@ -610,7 +610,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download all validation results
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: artifacts/
 
@@ -749,7 +749,7 @@ jobs:
         find artifacts -name "*.json" -exec cp {} dashboard/ \; 2>/dev/null || true
 
     - name: Upload validation dashboard
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nvidia-rag-validation-dashboard-${{ needs.setup.outputs.pipeline-id }}
         path: dashboard/
