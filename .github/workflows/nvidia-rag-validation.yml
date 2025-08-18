@@ -114,19 +114,28 @@ jobs:
         mkdir -p ~/.cache/model-cache
         echo "✅ Model cache directory: ~/.cache/model-cache"
         
-        # Step 2: Configure cloud endpoints (uncomment in .env)
+        # Step 2: Configure cloud endpoints (create .env.cloud file)
         echo "📋 Configuring cloud NIMs endpoints..."
-        cp deploy/compose/.env deploy/compose/.env.cloud
         
-        # Uncomment cloud NIMs endpoints as per quickstart guide
-        sed -i 's/^# export APP_EMBEDDINGS_SERVERURL=/export APP_EMBEDDINGS_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export APP_LLM_SERVERURL=/export APP_LLM_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export APP_RANKING_SERVERURL=/export APP_RANKING_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export SUMMARY_LLM_SERVERURL=/export SUMMARY_LLM_SERVERURL=/' deploy/compose/.env.cloud
-        
-        # Add required variables
-        echo "export NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
-        echo "export MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        # Create environment file for docker-compose (KEY=VALUE format, no export)
+        cat > deploy/compose/.env.cloud << EOF
+# NVIDIA Cloud API Configuration
+NGC_API_KEY=${NGC_API_KEY}
+NVIDIA_API_KEY=${NGC_API_KEY}
+MODEL_DIRECTORY=~/.cache/model-cache
+
+# Cloud NIMs endpoints
+APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1
+APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
+APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1
+SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
+
+# Default configuration
+APP_VECTORSTORE_SEARCHTYPE=dense
+APP_VECTORSTORE_ENABLEGPUINDEX=True
+APP_VECTORSTORE_ENABLEGPUSEARCH=True
+COLLECTION_NAME=multimodal_data
+EOF
         
         echo "✅ Cloud NIMs configuration completed"
         echo ""
@@ -287,18 +296,25 @@ jobs:
       run: |
         echo "🔧 Creating cloud configuration for ingestion services..."
         
-        # Copy base environment file
-        cp deploy/compose/.env deploy/compose/.env.cloud
-        
-        # Uncomment cloud NIMs endpoints as per quickstart guide  
-        sed -i 's/^# export APP_EMBEDDINGS_SERVERURL=/export APP_EMBEDDINGS_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export APP_LLM_SERVERURL=/export APP_LLM_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export APP_RANKING_SERVERURL=/export APP_RANKING_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export SUMMARY_LLM_SERVERURL=/export SUMMARY_LLM_SERVERURL=/' deploy/compose/.env.cloud
-        
-        # Add required variables
-        echo "export NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
-        echo "export MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        # Create environment file for docker-compose (KEY=VALUE format, no export)
+        cat > deploy/compose/.env.cloud << EOF
+# NVIDIA Cloud API Configuration
+NGC_API_KEY=${NGC_API_KEY}
+NVIDIA_API_KEY=${NGC_API_KEY}
+MODEL_DIRECTORY=~/.cache/model-cache
+
+# Cloud NIMs endpoints
+APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1
+APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
+APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1
+SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
+
+# Default configuration
+APP_VECTORSTORE_SEARCHTYPE=dense
+APP_VECTORSTORE_ENABLEGPUINDEX=True
+APP_VECTORSTORE_ENABLEGPUSEARCH=True
+COLLECTION_NAME=multimodal_data
+EOF
         
         echo "✅ Cloud configuration created"
 
@@ -310,8 +326,10 @@ jobs:
         echo "Following: docs/quickstart.md - Start the containers for ingestion microservices"
         echo ""
         
-        # Source cloud environment
+        # Load cloud environment variables for shell commands
+        set -a  # Mark variables for export
         source deploy/compose/.env.cloud
+        set +a  # Unmark variables for export
         
         # Verify .env.cloud file content
         echo "📄 Environment file content:"
@@ -428,18 +446,25 @@ jobs:
       run: |
         echo "🔧 Creating cloud configuration for RAG services..."
         
-        # Copy base environment file
-        cp deploy/compose/.env deploy/compose/.env.cloud
-        
-        # Uncomment cloud NIMs endpoints as per quickstart guide  
-        sed -i 's/^# export APP_EMBEDDINGS_SERVERURL=/export APP_EMBEDDINGS_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export APP_LLM_SERVERURL=/export APP_LLM_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export APP_RANKING_SERVERURL=/export APP_RANKING_SERVERURL=/' deploy/compose/.env.cloud
-        sed -i 's/^# export SUMMARY_LLM_SERVERURL=/export SUMMARY_LLM_SERVERURL=/' deploy/compose/.env.cloud
-        
-        # Add required variables
-        echo "export NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
-        echo "export MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        # Create environment file for docker-compose (KEY=VALUE format, no export)
+        cat > deploy/compose/.env.cloud << EOF
+# NVIDIA Cloud API Configuration
+NGC_API_KEY=${NGC_API_KEY}
+NVIDIA_API_KEY=${NGC_API_KEY}
+MODEL_DIRECTORY=~/.cache/model-cache
+
+# Cloud NIMs endpoints
+APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1
+APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
+APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1
+SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
+
+# Default configuration
+APP_VECTORSTORE_SEARCHTYPE=dense
+APP_VECTORSTORE_ENABLEGPUINDEX=True
+APP_VECTORSTORE_ENABLEGPUSEARCH=True
+COLLECTION_NAME=multimodal_data
+EOF
         
         echo "✅ Cloud configuration created"
 
@@ -451,8 +476,10 @@ jobs:
         echo "Following: docs/quickstart.md - Start the containers for RAG"
         echo ""
         
-        # Source cloud environment
+        # Load cloud environment variables for shell commands
+        set -a  # Mark variables for export
         source deploy/compose/.env.cloud
+        set +a  # Unmark variables for export
         
         # Verify .env.cloud file content
         echo "📄 Environment file content:"
