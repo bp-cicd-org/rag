@@ -170,8 +170,20 @@ jobs:
         echo "Following: docs/quickstart.md - Start the containers for vector database"
         echo ""
         
+        # Check which docker compose command to use
+        if docker compose version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker compose"
+          echo "Using: docker compose"
+        elif docker-compose --version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker-compose"
+          echo "Using: docker-compose"
+        else
+          echo "❌ Neither 'docker compose' nor 'docker-compose' found"
+          exit 1
+        fi
+        
         # Start Milvus, etcd, MinIO
-        docker-compose -f deploy/compose/vectordb.yaml up -d
+        $DOCKER_COMPOSE -f deploy/compose/vectordb.yaml up -d
         
         echo "⏳ Waiting for Milvus to be ready..."
         timeout 300 bash -c '
@@ -229,8 +241,20 @@ jobs:
         # Source cloud environment
         source deploy/compose/.env.cloud
         
+        # Check which docker compose command to use
+        if docker compose version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker compose"
+          echo "Using: docker compose"
+        elif docker-compose --version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker-compose"
+          echo "Using: docker-compose"
+        else
+          echo "❌ Neither 'docker compose' nor 'docker-compose' found"
+          exit 1
+        fi
+        
         # Start ingestion services
-        docker-compose -f deploy/compose/docker-compose-ingestor-server.yaml up -d
+        $DOCKER_COMPOSE -f deploy/compose/docker-compose-ingestor-server.yaml up -d
         
         echo "⏳ Waiting for ingestion service..."
         timeout 300 bash -c '
@@ -288,8 +312,20 @@ jobs:
         # Source cloud environment
         source deploy/compose/.env.cloud
         
+        # Check which docker compose command to use
+        if docker compose version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker compose"
+          echo "Using: docker compose"
+        elif docker-compose --version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker-compose"
+          echo "Using: docker-compose"
+        else
+          echo "❌ Neither 'docker compose' nor 'docker-compose' found"
+          exit 1
+        fi
+        
         # Start RAG server
-        docker-compose -f deploy/compose/docker-compose-rag-server.yaml up -d
+        $DOCKER_COMPOSE -f deploy/compose/docker-compose-rag-server.yaml up -d
         
         echo "⏳ Waiting for RAG service..."
         timeout 300 bash -c '
@@ -787,10 +823,24 @@ jobs:
       run: |
         echo "🧹 Cleaning up deployment resources..."
         
+        # Check which docker compose command to use
+        if docker compose version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker compose"
+          echo "Using: docker compose for cleanup"
+        elif docker-compose --version >/dev/null 2>&1; then
+          DOCKER_COMPOSE="docker-compose"
+          echo "Using: docker-compose for cleanup"
+        else
+          echo "❌ Neither 'docker compose' nor 'docker-compose' found, skipping compose cleanup"
+          DOCKER_COMPOSE=""
+        fi
+        
         # Stop all services gracefully
-        docker-compose -f deploy/compose/docker-compose-rag-server.yaml down || true
-        docker-compose -f deploy/compose/docker-compose-ingestor-server.yaml down || true
-        docker-compose -f deploy/compose/vectordb.yaml down || true
+        if [ -n "$DOCKER_COMPOSE" ]; then
+          $DOCKER_COMPOSE -f deploy/compose/docker-compose-rag-server.yaml down || true
+          $DOCKER_COMPOSE -f deploy/compose/docker-compose-ingestor-server.yaml down || true
+          $DOCKER_COMPOSE -f deploy/compose/vectordb.yaml down || true
+        fi
         
         # Clean up containers and networks
         docker container prune -f || true
