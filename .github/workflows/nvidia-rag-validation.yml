@@ -33,10 +33,44 @@ jobs:
       artifacts-name: ${{ steps.setup.outputs.artifacts-name }}
       dashboard-url: ${{ steps.setup.outputs.dashboard-url }}
     steps:
+    - name: Install Git LFS
+      run: |
+        echo "🔧 Installing Git LFS..."
+        # Check if git-lfs is already installed
+        if ! command -v git-lfs &> /dev/null; then
+          echo "Installing git-lfs..."
+          # Install git-lfs on Ubuntu/Debian
+          curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+          sudo apt-get install -y git-lfs
+        else
+          echo "git-lfs is already installed"
+        fi
+        
+        # Verify installation
+        git lfs version
+        echo "✅ Git LFS installation verified"
+
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         lfs: true
+
+    - name: Initialize Git LFS
+      run: |
+        echo "🔧 Setting up Git LFS..."
+        git lfs install
+        git lfs pull
+        echo "✅ Git LFS setup completed"
+
+    - name: Verify environment protection is working
+      run: |
+        echo "🔐 This step should only run after manual approval!"
+        echo "📋 Environment: dev-nvidia-cloud-apis"
+        echo "👤 Triggered by: ${{ github.actor }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+        echo "⏰ Current time: $(date)"
+        echo ""
+        echo "✅ If you see this message, the environment protection is working correctly!"
 
     - name: Setup pipeline artifacts structure
       id: setup
@@ -102,10 +136,24 @@ jobs:
     runs-on: arc-runner-set-oke-org-poc
     environment: dev-nvidia-cloud-apis
     steps:
+    - name: Install Git LFS
+      run: |
+        echo "🔧 Installing Git LFS..."
+        if ! command -v git-lfs &> /dev/null; then
+          curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+          sudo apt-get install -y git-lfs
+        fi
+        git lfs version
+
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         lfs: true
+
+    - name: Initialize Git LFS
+      run: |
+        git lfs install
+        git lfs pull
 
     - name: Setup Python environment
       uses: actions/setup-python@v4
@@ -335,10 +383,24 @@ jobs:
     runs-on: arc-runner-set-oke-org-poc
     environment: dev-nvidia-cloud-apis
     steps:
+    - name: Install Git LFS
+      run: |
+        echo "🔧 Installing Git LFS..."
+        if ! command -v git-lfs &> /dev/null; then
+          curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+          sudo apt-get install -y git-lfs
+        fi
+        git lfs version
+
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         lfs: true
+
+    - name: Initialize Git LFS
+      run: |
+        git lfs install
+        git lfs pull
 
     - name: Download preparation scripts
       uses: actions/download-artifact@v3
@@ -735,10 +797,24 @@ jobs:
     runs-on: arc-runner-set-oke-org-poc
     environment: dev-nvidia-cloud-apis
     steps:
+    - name: Install Git LFS
+      run: |
+        echo "🔧 Installing Git LFS..."
+        if ! command -v git-lfs &> /dev/null; then
+          curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+          sudo apt-get install -y git-lfs
+        fi
+        git lfs version
+
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         lfs: true
+
+    - name: Initialize Git LFS
+      run: |
+        git lfs install
+        git lfs pull
 
     - name: Setup Python for notebook execution
       uses: actions/setup-python@v4
