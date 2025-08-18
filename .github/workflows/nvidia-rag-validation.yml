@@ -313,6 +313,20 @@ jobs:
         # Source cloud environment
         source deploy/compose/.env.cloud
         
+        # Verify .env.cloud file content
+        echo "📄 Environment file content:"
+        cat deploy/compose/.env.cloud | grep -E "(NGC_API_KEY|APP_.*_SERVERURL)" | head -10
+        
+        # Test NGC API key directly
+        echo "🧪 Testing NGC API key..."
+        curl -s -H "Authorization: Bearer ${NGC_API_KEY}" "https://integrate.api.nvidia.com/v1/models" -o /tmp/api_test_ingestion.json
+        api_status=$?
+        if [ $api_status -eq 0 ]; then
+          echo "✅ NGC API key is valid"
+        else
+          echo "❌ NGC API key test failed (exit code: $api_status)"
+        fi
+        
         # Install Docker Compose if not available and set command
         if docker compose version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker compose"
@@ -353,8 +367,8 @@ jobs:
         echo "NGC_API_KEY is set: $([ -n "$NGC_API_KEY" ] && echo "YES" || echo "NO")"
         echo "NGC_API_KEY length: ${#NGC_API_KEY}"
         
-        # Start ingestion services
-        $DOCKER_COMPOSE -f deploy/compose/docker-compose-ingestor-server.yaml up -d
+        # Start ingestion services with environment file
+        $DOCKER_COMPOSE --env-file deploy/compose/.env.cloud -f deploy/compose/docker-compose-ingestor-server.yaml up -d
         
         echo "⏳ Waiting for ingestion service..."
         
@@ -440,6 +454,20 @@ jobs:
         # Source cloud environment
         source deploy/compose/.env.cloud
         
+        # Verify .env.cloud file content
+        echo "📄 Environment file content:"
+        cat deploy/compose/.env.cloud | grep -E "(NGC_API_KEY|APP_.*_SERVERURL)" | head -10
+        
+        # Test NGC API key directly
+        echo "🧪 Testing NGC API key..."
+        curl -s -H "Authorization: Bearer ${NGC_API_KEY}" "https://integrate.api.nvidia.com/v1/models" -o /tmp/api_test_rag.json
+        api_status=$?
+        if [ $api_status -eq 0 ]; then
+          echo "✅ NGC API key is valid"
+        else
+          echo "❌ NGC API key test failed (exit code: $api_status)"
+        fi
+        
         # Install Docker Compose if not available and set command
         if docker compose version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker compose"
@@ -480,8 +508,8 @@ jobs:
         echo "NGC_API_KEY is set: $([ -n "$NGC_API_KEY" ] && echo "YES" || echo "NO")"
         echo "NGC_API_KEY length: ${#NGC_API_KEY}"
         
-        # Start RAG server
-        $DOCKER_COMPOSE -f deploy/compose/docker-compose-rag-server.yaml up -d
+        # Start RAG server with environment file
+        $DOCKER_COMPOSE --env-file deploy/compose/.env.cloud -f deploy/compose/docker-compose-rag-server.yaml up -d
         
         echo "⏳ Waiting for RAG service..."
         
