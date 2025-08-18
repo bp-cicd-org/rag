@@ -133,12 +133,6 @@ jobs:
         echo "📋 Configured endpoints:"
         grep "APP_.*_SERVERURL" deploy/compose/.env.cloud
 
-    - name: Upload cloud configuration
-      uses: actions/upload-artifact@v4
-      with:
-        name: cloud-config-${{ needs.setup.outputs.pipeline-id }}
-        path: deploy/compose/.env.cloud
-
   # =============================================================================
   # QUICKSTART STEP 2: Start the containers for vector database
   # =============================================================================
@@ -287,11 +281,26 @@ jobs:
         git lfs install
         git lfs pull
 
-    - name: Download cloud configuration
-      uses: actions/download-artifact@v4
-      with:
-        name: cloud-config-${{ needs.setup.outputs.pipeline-id }}
-        path: deploy/compose/
+    - name: Create cloud configuration
+      env:
+        NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+      run: |
+        echo "🔧 Creating cloud configuration for ingestion services..."
+        
+        # Copy base environment file
+        cp deploy/compose/.env deploy/compose/.env.cloud
+        
+        # Uncomment cloud NIMs endpoints as per quickstart guide  
+        sed -i 's/^# export APP_EMBEDDINGS_SERVERURL=/export APP_EMBEDDINGS_SERVERURL=/' deploy/compose/.env.cloud
+        sed -i 's/^# export APP_LLM_SERVERURL=/export APP_LLM_SERVERURL=/' deploy/compose/.env.cloud
+        sed -i 's/^# export APP_RANKING_SERVERURL=/export APP_RANKING_SERVERURL=/' deploy/compose/.env.cloud
+        sed -i 's/^# export SUMMARY_LLM_SERVERURL=/export SUMMARY_LLM_SERVERURL=/' deploy/compose/.env.cloud
+        
+        # Add required variables
+        echo "export NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "export MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        
+        echo "✅ Cloud configuration created"
 
     - name: Start Ingestion Services
       env:
@@ -378,11 +387,26 @@ jobs:
         git lfs install
         git lfs pull
 
-    - name: Download cloud configuration
-      uses: actions/download-artifact@v4
-      with:
-        name: cloud-config-${{ needs.setup.outputs.pipeline-id }}
-        path: deploy/compose/
+    - name: Create cloud configuration
+      env:
+        NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+      run: |
+        echo "🔧 Creating cloud configuration for RAG services..."
+        
+        # Copy base environment file
+        cp deploy/compose/.env deploy/compose/.env.cloud
+        
+        # Uncomment cloud NIMs endpoints as per quickstart guide  
+        sed -i 's/^# export APP_EMBEDDINGS_SERVERURL=/export APP_EMBEDDINGS_SERVERURL=/' deploy/compose/.env.cloud
+        sed -i 's/^# export APP_LLM_SERVERURL=/export APP_LLM_SERVERURL=/' deploy/compose/.env.cloud
+        sed -i 's/^# export APP_RANKING_SERVERURL=/export APP_RANKING_SERVERURL=/' deploy/compose/.env.cloud
+        sed -i 's/^# export SUMMARY_LLM_SERVERURL=/export SUMMARY_LLM_SERVERURL=/' deploy/compose/.env.cloud
+        
+        # Add required variables
+        echo "export NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "export MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        
+        echo "✅ Cloud configuration created"
 
     - name: Start RAG Services
       env:
