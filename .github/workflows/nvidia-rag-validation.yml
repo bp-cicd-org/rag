@@ -164,6 +164,12 @@ jobs:
         git lfs install
         git lfs pull
 
+    - name: Install required tools
+      run: |
+        echo "📦 Installing required tools..."
+        sudo apt-get update
+        sudo apt-get install -y netcat-openbsd curl jq
+
     - name: Start Vector Database Services
       run: |
         echo "🚀 QUICKSTART STEP 2: Starting vector database services"
@@ -206,13 +212,50 @@ jobs:
         $DOCKER_COMPOSE -f deploy/compose/vectordb.yaml up -d
         
         echo "⏳ Waiting for Milvus to be ready..."
+        
+        # Wait for containers to be running first
+        echo "  Checking container status..."
+        for i in {1..30}; do
+          if docker ps --format "{{.Names}}" | grep -q "milvus-standalone"; then
+            echo "  ✅ Milvus container is running"
+            break
+          fi
+          echo "  Waiting for container to start... ($i/30)"
+          sleep 5
+        done
+        
+        # Wait for Milvus service to be ready using health check
+        echo "  Waiting for Milvus service to be ready..."
         timeout 300 bash -c '
-          while ! docker logs milvus-standalone 2>&1 | grep -q "server listening"; do 
-            echo "  Waiting for Milvus..."
+          while true; do
+            # Try to connect to Milvus gRPC port (19530)
+            if nc -z localhost 19530 2>/dev/null; then
+              echo "  ✅ Milvus gRPC port (19530) is responding"
+              break
+            fi
+            # Also check Milvus HTTP port (9091) if available
+            if nc -z localhost 9091 2>/dev/null; then
+              echo "  ✅ Milvus HTTP port (9091) is responding"
+              break
+            fi
+            # Check container health status
+            if [ "$(docker inspect --format=\"{{.State.Health.Status}}\" milvus-standalone 2>/dev/null)" = "healthy" ]; then
+              echo "  ✅ Milvus container is healthy"
+              break
+            fi
+            # Check for specific log patterns
+            if docker logs milvus-standalone 2>&1 | grep -E "(Proxy successfully started|gRPC server|server listening)" >/dev/null; then
+              echo "  ✅ Milvus service logs indicate ready state"
+              break
+            fi
+            echo "  Still waiting for Milvus service..."
             sleep 10
           done
-          echo "✅ Milvus is ready"
         '
+        
+        # Show final status
+        echo "📊 Milvus container status:"
+        docker logs milvus-standalone --tail 10 2>&1 || echo "No logs available"
         
         echo ""
         echo "📋 Vector database status:"
