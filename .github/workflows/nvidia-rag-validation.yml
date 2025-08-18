@@ -345,10 +345,31 @@ jobs:
         
         echo "Using: $DOCKER_COMPOSE"
         
+        # Export NGC_API_KEY for docker-compose
+        export NGC_API_KEY="${NGC_API_KEY}"
+        
+        # Verify environment variables
+        echo "🔑 Verifying environment variables..."
+        echo "NGC_API_KEY is set: $([ -n "$NGC_API_KEY" ] && echo "YES" || echo "NO")"
+        echo "NGC_API_KEY length: ${#NGC_API_KEY}"
+        
         # Start ingestion services
         $DOCKER_COMPOSE -f deploy/compose/docker-compose-ingestor-server.yaml up -d
         
         echo "⏳ Waiting for ingestion service..."
+        
+        # First check if containers are running
+        echo "📊 Container status:"
+        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(ingestor|redis|nv-ingest)"
+        
+        # Check container logs for any errors
+        echo "📝 Container logs (last 10 lines):"
+        for container in $(docker ps --format "{{.Names}}" | grep -E "(ingestor|nv-ingest)"); do
+          echo "--- $container ---"
+          docker logs "$container" --tail 10 2>&1 || echo "No logs available"
+        done
+        
+        # Wait for service to be ready
         timeout 300 bash -c '
           while ! curl -sf http://localhost:8082/health >/dev/null 2>&1; do 
             echo "  Waiting for ingestion service..."
@@ -359,7 +380,7 @@ jobs:
         
         echo ""
         echo "📋 Ingestion service health:"
-        curl -s http://localhost:8082/health | jq '.'
+        curl -s http://localhost:8082/health | jq '.' || echo "Health check failed"
 
   # =============================================================================
   # QUICKSTART STEP 4: Start the containers for RAG
@@ -451,10 +472,31 @@ jobs:
         
         echo "Using: $DOCKER_COMPOSE"
         
+        # Export NGC_API_KEY for docker-compose
+        export NGC_API_KEY="${NGC_API_KEY}"
+        
+        # Verify environment variables
+        echo "🔑 Verifying environment variables..."
+        echo "NGC_API_KEY is set: $([ -n "$NGC_API_KEY" ] && echo "YES" || echo "NO")"
+        echo "NGC_API_KEY length: ${#NGC_API_KEY}"
+        
         # Start RAG server
         $DOCKER_COMPOSE -f deploy/compose/docker-compose-rag-server.yaml up -d
         
         echo "⏳ Waiting for RAG service..."
+        
+        # First check if containers are running
+        echo "📊 Container status:"
+        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(rag-server|chain-server|rag-playground)"
+        
+        # Check container logs for any errors
+        echo "📝 Container logs (last 10 lines):"
+        for container in $(docker ps --format "{{.Names}}" | grep -E "(rag-server|chain-server)"); do
+          echo "--- $container ---"
+          docker logs "$container" --tail 10 2>&1 || echo "No logs available"
+        done
+        
+        # Wait for service to be ready
         timeout 300 bash -c '
           while ! curl -sf http://localhost:8081/health >/dev/null 2>&1; do 
             echo "  Waiting for RAG service..."
@@ -465,7 +507,7 @@ jobs:
         
         echo ""
         echo "📋 RAG service health:"
-        curl -s http://localhost:8081/health | jq '.'
+        curl -s http://localhost:8081/health | jq '.' || echo "Health check failed"
 
     - name: Verify Complete Deployment
       run: |
