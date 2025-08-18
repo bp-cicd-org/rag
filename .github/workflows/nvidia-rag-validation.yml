@@ -170,17 +170,37 @@ jobs:
         echo "Following: docs/quickstart.md - Start the containers for vector database"
         echo ""
         
-        # Check which docker compose command to use
+        # Install Docker Compose if not available and set command
         if docker compose version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker compose"
-          echo "Using: docker compose"
+          echo "✅ Docker Compose v2 is available"
+          docker compose version
         elif docker-compose --version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker-compose"
-          echo "Using: docker-compose"
+          echo "✅ Docker Compose v1 is available"
+          docker-compose --version
         else
-          echo "❌ Neither 'docker compose' nor 'docker-compose' found"
-          exit 1
+          echo "📦 Installing Docker Compose v2..."
+          
+          # Install Docker Compose v2 as a Docker CLI plugin
+          DOCKER_COMPOSE_VERSION="2.24.1"
+          mkdir -p ~/.docker/cli-plugins/
+          curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          
+          # Verify installation
+          if docker compose version >/dev/null 2>&1; then
+            DOCKER_COMPOSE="docker compose"
+            echo "✅ Docker Compose v2 installed successfully"
+            docker compose version
+          else
+            echo "❌ Docker Compose installation failed"
+            exit 1
+          fi
         fi
+        
+        echo "Using: $DOCKER_COMPOSE"
         
         # Start Milvus, etcd, MinIO
         $DOCKER_COMPOSE -f deploy/compose/vectordb.yaml up -d
@@ -241,17 +261,37 @@ jobs:
         # Source cloud environment
         source deploy/compose/.env.cloud
         
-        # Check which docker compose command to use
+        # Install Docker Compose if not available and set command
         if docker compose version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker compose"
-          echo "Using: docker compose"
+          echo "✅ Docker Compose v2 is available"
+          docker compose version
         elif docker-compose --version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker-compose"
-          echo "Using: docker-compose"
+          echo "✅ Docker Compose v1 is available"
+          docker-compose --version
         else
-          echo "❌ Neither 'docker compose' nor 'docker-compose' found"
-          exit 1
+          echo "📦 Installing Docker Compose v2..."
+          
+          # Install Docker Compose v2 as a Docker CLI plugin
+          DOCKER_COMPOSE_VERSION="2.24.1"
+          mkdir -p ~/.docker/cli-plugins/
+          curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          
+          # Verify installation
+          if docker compose version >/dev/null 2>&1; then
+            DOCKER_COMPOSE="docker compose"
+            echo "✅ Docker Compose v2 installed successfully"
+            docker compose version
+          else
+            echo "❌ Docker Compose installation failed"
+            exit 1
+          fi
         fi
+        
+        echo "Using: $DOCKER_COMPOSE"
         
         # Start ingestion services
         $DOCKER_COMPOSE -f deploy/compose/docker-compose-ingestor-server.yaml up -d
@@ -312,17 +352,37 @@ jobs:
         # Source cloud environment
         source deploy/compose/.env.cloud
         
-        # Check which docker compose command to use
+        # Install Docker Compose if not available and set command
         if docker compose version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker compose"
-          echo "Using: docker compose"
+          echo "✅ Docker Compose v2 is available"
+          docker compose version
         elif docker-compose --version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker-compose"
-          echo "Using: docker-compose"
+          echo "✅ Docker Compose v1 is available"
+          docker-compose --version
         else
-          echo "❌ Neither 'docker compose' nor 'docker-compose' found"
-          exit 1
+          echo "📦 Installing Docker Compose v2..."
+          
+          # Install Docker Compose v2 as a Docker CLI plugin
+          DOCKER_COMPOSE_VERSION="2.24.1"
+          mkdir -p ~/.docker/cli-plugins/
+          curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          
+          # Verify installation
+          if docker compose version >/dev/null 2>&1; then
+            DOCKER_COMPOSE="docker compose"
+            echo "✅ Docker Compose v2 installed successfully"
+            docker compose version
+          else
+            echo "❌ Docker Compose installation failed"
+            exit 1
+          fi
         fi
+        
+        echo "Using: $DOCKER_COMPOSE"
         
         # Start RAG server
         $DOCKER_COMPOSE -f deploy/compose/docker-compose-rag-server.yaml up -d
@@ -823,16 +883,31 @@ jobs:
       run: |
         echo "🧹 Cleaning up deployment resources..."
         
-        # Check which docker compose command to use
+        # Install Docker Compose if not available and set command for cleanup
         if docker compose version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker compose"
-          echo "Using: docker compose for cleanup"
+          echo "✅ Docker Compose v2 is available for cleanup"
         elif docker-compose --version >/dev/null 2>&1; then
           DOCKER_COMPOSE="docker-compose"
-          echo "Using: docker-compose for cleanup"
+          echo "✅ Docker Compose v1 is available for cleanup"
         else
-          echo "❌ Neither 'docker compose' nor 'docker-compose' found, skipping compose cleanup"
-          DOCKER_COMPOSE=""
+          echo "📦 Installing Docker Compose v2 for cleanup..."
+          
+          # Install Docker Compose v2 as a Docker CLI plugin
+          DOCKER_COMPOSE_VERSION="2.24.1"
+          mkdir -p ~/.docker/cli-plugins/
+          curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          
+          # Verify installation
+          if docker compose version >/dev/null 2>&1; then
+            DOCKER_COMPOSE="docker compose"
+            echo "✅ Docker Compose v2 installed successfully for cleanup"
+          else
+            echo "❌ Docker Compose installation failed, skipping compose cleanup"
+            DOCKER_COMPOSE=""
+          fi
         fi
         
         # Stop all services gracefully
