@@ -109,7 +109,7 @@ jobs:
         echo ""
         
         # Step 1: Set environment variables
-        echo "�� Setting up environment variables..."
+        echo "🔧 Setting up environment variables..."
         export MODEL_DIRECTORY=~/.cache/model-cache
         mkdir -p ~/.cache/model-cache
         echo "✅ Model cache directory: ~/.cache/model-cache"
@@ -117,25 +117,23 @@ jobs:
         # Step 2: Configure cloud endpoints (create .env.cloud file)
         echo "📋 Configuring cloud NIMs endpoints..."
         
-        # Create environment file for docker-compose (KEY=VALUE format, no export)
-        cat > deploy/compose/.env.cloud << EOF
-# NVIDIA Cloud API Configuration
-NGC_API_KEY=${NGC_API_KEY}
-NVIDIA_API_KEY=${NGC_API_KEY}
-MODEL_DIRECTORY=~/.cache/model-cache
-
-# Cloud NIMs endpoints
-APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1
-APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
-APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1
-SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
-
-# Default configuration
-APP_VECTORSTORE_SEARCHTYPE=dense
-APP_VECTORSTORE_ENABLEGPUINDEX=True
-APP_VECTORSTORE_ENABLEGPUSEARCH=True
-COLLECTION_NAME=multimodal_data
-EOF
+        # Create environment file for docker-compose using echo commands
+        echo "# NVIDIA Cloud API Configuration" > deploy/compose/.env.cloud
+        echo "NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "NVIDIA_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        echo "" >> deploy/compose/.env.cloud
+        echo "# Cloud NIMs endpoints" >> deploy/compose/.env.cloud
+        echo "APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "" >> deploy/compose/.env.cloud
+        echo "# Default configuration" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_SEARCHTYPE=dense" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_ENABLEGPUINDEX=True" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_ENABLEGPUSEARCH=True" >> deploy/compose/.env.cloud
+        echo "COLLECTION_NAME=multimodal_data" >> deploy/compose/.env.cloud
         
         echo "✅ Cloud NIMs configuration completed"
         echo ""
@@ -296,25 +294,23 @@ EOF
       run: |
         echo "🔧 Creating cloud configuration for ingestion services..."
         
-        # Create environment file for docker-compose (KEY=VALUE format, no export)
-        cat > deploy/compose/.env.cloud << EOF
-# NVIDIA Cloud API Configuration
-NGC_API_KEY=${NGC_API_KEY}
-NVIDIA_API_KEY=${NGC_API_KEY}
-MODEL_DIRECTORY=~/.cache/model-cache
-
-# Cloud NIMs endpoints
-APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1
-APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
-APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1
-SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
-
-# Default configuration
-APP_VECTORSTORE_SEARCHTYPE=dense
-APP_VECTORSTORE_ENABLEGPUINDEX=True
-APP_VECTORSTORE_ENABLEGPUSEARCH=True
-COLLECTION_NAME=multimodal_data
-EOF
+        # Create environment file for docker-compose using echo commands
+        echo "# NVIDIA Cloud API Configuration" > deploy/compose/.env.cloud
+        echo "NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "NVIDIA_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        echo "" >> deploy/compose/.env.cloud
+        echo "# Cloud NIMs endpoints" >> deploy/compose/.env.cloud
+        echo "APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "" >> deploy/compose/.env.cloud
+        echo "# Default configuration" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_SEARCHTYPE=dense" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_ENABLEGPUINDEX=True" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_ENABLEGPUSEARCH=True" >> deploy/compose/.env.cloud
+        echo "COLLECTION_NAME=multimodal_data" >> deploy/compose/.env.cloud
         
         echo "✅ Cloud configuration created"
 
@@ -446,25 +442,23 @@ EOF
       run: |
         echo "🔧 Creating cloud configuration for RAG services..."
         
-        # Create environment file for docker-compose (KEY=VALUE format, no export)
-        cat > deploy/compose/.env.cloud << EOF
-# NVIDIA Cloud API Configuration
-NGC_API_KEY=${NGC_API_KEY}
-NVIDIA_API_KEY=${NGC_API_KEY}
-MODEL_DIRECTORY=~/.cache/model-cache
-
-# Cloud NIMs endpoints
-APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1
-APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
-APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1
-SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1
-
-# Default configuration
-APP_VECTORSTORE_SEARCHTYPE=dense
-APP_VECTORSTORE_ENABLEGPUINDEX=True
-APP_VECTORSTORE_ENABLEGPUSEARCH=True
-COLLECTION_NAME=multimodal_data
-EOF
+        # Create environment file for docker-compose using echo commands
+        echo "# NVIDIA Cloud API Configuration" > deploy/compose/.env.cloud
+        echo "NGC_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "NVIDIA_API_KEY=${NGC_API_KEY}" >> deploy/compose/.env.cloud
+        echo "MODEL_DIRECTORY=~/.cache/model-cache" >> deploy/compose/.env.cloud
+        echo "" >> deploy/compose/.env.cloud
+        echo "# Cloud NIMs endpoints" >> deploy/compose/.env.cloud
+        echo "APP_EMBEDDINGS_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "APP_LLM_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "APP_RANKING_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "SUMMARY_LLM_SERVERURL=https://integrate.api.nvidia.com/v1" >> deploy/compose/.env.cloud
+        echo "" >> deploy/compose/.env.cloud
+        echo "# Default configuration" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_SEARCHTYPE=dense" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_ENABLEGPUINDEX=True" >> deploy/compose/.env.cloud
+        echo "APP_VECTORSTORE_ENABLEGPUSEARCH=True" >> deploy/compose/.env.cloud
+        echo "COLLECTION_NAME=multimodal_data" >> deploy/compose/.env.cloud
         
         echo "✅ Cloud configuration created"
 
