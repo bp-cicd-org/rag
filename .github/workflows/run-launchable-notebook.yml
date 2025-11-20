@@ -31,11 +31,16 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Download notebook_runner_nbclient.py
+      - name: Use local notebook_runner_nbclient.py
         run: |
-          curl -o notebook_runner_nbclient.py \
-            https://raw.githubusercontent.com/nv-blueprint-org/Blueprint-Utils/refs/heads/main/notebook_runner/notebook_runner_nbclient.py
+          # Use the local copy of notebook_runner_nbclient.py from project root
+          # This allows us to customize and fix issues in the runner script
+          if [ ! -f "notebook_runner_nbclient.py" ]; then
+            echo "ERROR: notebook_runner_nbclient.py not found in project root"
+            exit 1
+          fi
           chmod +x notebook_runner_nbclient.py
+          echo "Using local notebook_runner_nbclient.py"
 
       - name: Install dependencies
         run: |
