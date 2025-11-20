@@ -96,15 +96,23 @@ jobs:
 
       - name: Create temporary notebook copy and add skip tag
         run: |
+          # Get git commit SHA (first 7 characters) for unique temporary file naming
+          COMMIT_SHA=$(git rev-parse --short=7 HEAD)
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          echo "Using commit SHA for temporary notebook: $COMMIT_SHA"
+          
           # Create temporary copy of notebook to avoid modifying original
-          cp notebooks/launchable.ipynb notebooks/launchable.temp.ipynb
+          # Use commit SHA instead of 'temp' for better traceability
+          cp notebooks/launchable.ipynb notebooks/launchable.$COMMIT_SHA.ipynb
           
           # Add ci-skip tag to Cell 3 (kernel restart cell) in temporary copy
           # This allows nbclient to skip execution while preserving original code in HTML output
           python << 'EOF'
           import json
+          import os
           
-          notebook_path = "notebooks/launchable.temp.ipynb"
+          commit_sha = os.environ['COMMIT_SHA']
+          notebook_path = f"notebooks/launchable.{commit_sha}.ipynb"
           
           with open(notebook_path, 'r', encoding='utf-8') as f:
               nb = json.load(f)
@@ -259,9 +267,10 @@ jobs:
           
           # Start notebook runner process
           env = os.environ.copy()
+          commit_sha = env.get('COMMIT_SHA', 'unknown')
           cmd = [
               'python', 'notebook_runner_nbclient.py',
-              '-f', 'notebooks/launchable.temp.ipynb',
+              '-f', f'notebooks/launchable.{commit_sha}.ipynb',
               '--output-dir', 'notebook_output',
               '--skip-tags', 'ci-skip',
               '-e', f'NGC_API_KEY={env.get("NGC_API_KEY", "")}'
@@ -312,7 +321,8 @@ jobs:
         if: always()
         run: |
           # Remove temporary notebook copy after execution
-          rm -f notebooks/launchable.temp.ipynb
+          # Use COMMIT_SHA from environment variable
+          rm -f notebooks/launchable.${{ env.COMMIT_SHA }}.ipynb
 
       - name: Upload HTML output
         uses: actions/upload-artifact@v4
