@@ -199,39 +199,38 @@ jobs:
                   notebook_process.send_signal(signal.SIGCONT)
           
           def monitor_output(pipe, queue):
-              """Monitor output and detect RAG server startup and health check execution.
+              """Monitor output and detect RAG server startup.
               
-              When RAG server startup is detected, launch a background thread to wait for service readiness.
-              When health check cell is about to execute, pause the subprocess using SIGSTOP.
-              The background thread will resume it with SIGCONT once service is ready.
+              When RAG server startup is detected:
+              1. Immediately pause the subprocess using SIGSTOP
+              2. Launch a background thread to poll HTTP health API
+              3. Once API returns 200, background thread resumes subprocess with SIGCONT
               
-              This approach avoids blocking the output monitor (preventing deadlock) while ensuring
-              the health check cell only executes after the service is ready.
+              This approach ensures health API is ready before notebook continues execution,
+              preventing ServerDisconnectedError while avoiding output monitor blocking (no deadlock).
               """
-              wait_thread = None
+              paused_for_rag = False  # Flag to ensure we only pause once for RAG startup
               for line in iter(pipe.readline, ''):
                   if line:
                       queue.put(line)
                       sys.stdout.write(line)
                       sys.stdout.flush()
                       
-                      # Detect RAG server startup and launch background wait thread
-                      if 'Starting RAG microservices' in line or 'Starting RAG microservices...' in line:
+                      # Detect RAG server startup - immediately pause and wait for health API
+                      if not paused_for_rag and ('Starting RAG microservices' in line or 'Starting RAG microservices...' in line):
                           print("\n[WORKFLOW] Detected RAG server startup signal", flush=True)
-                          # Launch background thread to wait for HTTP endpoint and resume process
-                          wait_thread = threading.Thread(target=wait_for_rag_server_and_resume, daemon=True)
-                          wait_thread.start()
-                      
-                      # Detect health check cell execution - pause subprocess to wait for service
-                      # Pattern matches the health check cell in the notebook
-                      if wait_thread and ('Test the RAG server health endpoint' in line or 'Testing RAG server health endpoint' in line):
-                          print("\n[WORKFLOW] Detected health check cell, pausing notebook execution...", flush=True)
-                          # Pause the subprocess using SIGSTOP (does NOT block this monitor thread)
-                          # Background thread will resume it with SIGCONT once HTTP endpoint is ready
+                          
+                          # Immediately pause the subprocess to prevent health checks from running too early
                           if notebook_process:
+                              print("[WORKFLOW] Pausing notebook execution with SIGSTOP...", flush=True)
                               notebook_process.send_signal(signal.SIGSTOP)
                               process_paused.set()
-                              print("[WORKFLOW] Notebook paused with SIGSTOP, waiting for HTTP endpoint...", flush=True)
+                              paused_for_rag = True
+                          
+                          # Launch background thread to poll health API and resume when ready
+                          # This does NOT block the output monitor
+                          wait_thread = threading.Thread(target=wait_for_rag_server_and_resume, daemon=True)
+                          wait_thread.start()
               pipe.close()
           
           # Start notebook runner process
