@@ -48,6 +48,9 @@ jobs:
           # Install nbclient and jupyter for notebook execution
           # nbclient provides fine-grained control over cell execution
           pip install nbclient jupyter
+          # Install requests for RAG server health check waiting logic
+          # This is used by notebook_runner_nbclient.py to wait for services to be ready
+          pip install requests
           # Pre-install notebook dependencies to avoid kernel restart issue
           # Cell 1 installs these packages, but Cell 3 tries to restart kernel
           # which causes kernel death in automated execution environment
@@ -59,147 +62,29 @@ jobs:
           pip install ipykernel
           
           # Register Python kernel for Jupyter
-          # Using --user flag installs kernel in user directory
           python3 -m ipykernel install --user --name python3 --display-name "Python 3"
-          
-          # Verify kernel installation
-          echo "=== Checking installed kernels ==="
-          jupyter kernelspec list
-          
-          # Check kernel spec location and content
-          echo "=== Kernel spec details ==="
-          KERNEL_DIR=$(jupyter kernelspec list | grep python3 | awk '{print $NF}')
-          if [ -n "$KERNEL_DIR" ]; then
-            echo "Kernel directory: $KERNEL_DIR"
-            echo "Kernel spec file:"
-            cat "$KERNEL_DIR/kernel.json" || echo "Failed to read kernel.json"
-            echo "Kernel executable:"
-            cat "$KERNEL_DIR/kernel.json" | grep -A 1 argv || echo "Failed to extract argv"
-          fi
-          
-          # Verify IPython is available
-          echo "=== Verifying IPython ==="
-          python3 -c "import IPython; print(f'IPython version: {IPython.__version__}')"
-          
-          # Verify kernel can be imported
-          echo "=== Verifying ipykernel ==="
-          python3 -c "import ipykernel; print(f'ipykernel version: {ipykernel.__version__}')"
-          
-          # Test kernel startup manually
-          echo "=== Testing kernel startup ==="
-          python3 << 'EOF'
-          import json
-          import subprocess
-          import sys
-          from pathlib import Path
-          
-          # Get kernel spec path
-          result = subprocess.run(['jupyter', 'kernelspec', 'list', '--json'], 
-                                 capture_output=True, text=True)
-          if result.returncode == 0:
-              kernels = json.loads(result.stdout)
-              if 'python3' in kernels.get('kernelspecs', {}):
-                  spec_path = kernels['kernelspecs']['python3']['resource_dir']
-                  kernel_json = Path(spec_path) / 'kernel.json'
-                  if kernel_json.exists():
-                      with open(kernel_json) as f:
-                          kernel_config = json.load(f)
-                      print(f"Kernel executable: {kernel_config.get('argv', [])}")
-                      # Test if kernel executable exists and is executable
-                      if kernel_config.get('argv'):
-                          exe = kernel_config['argv'][0]
-                          import os
-                          if os.path.exists(exe):
-                              print(f"Kernel executable exists: {exe}")
-                              print(f"Kernel executable is executable: {os.access(exe, os.X_OK)}")
-                          else:
-                              print(f"ERROR: Kernel executable not found: {exe}")
-                              sys.exit(1)
-          EOF
 
       - name: Set up environment variables
         run: |
           # Set MODEL_DIRECTORY for model caching
-          # The notebook uses this directory to cache downloaded NIM models
-          # Default location is ~/.cache/model-cache if not set
           echo "MODEL_DIRECTORY=$HOME/.cache/model-cache" >> $GITHUB_ENV
           mkdir -p $HOME/.cache/model-cache
           
           # Set USERID which is required by Docker containers
-          # The notebook uses this to set proper file permissions in containers
           echo "USERID=$(id -u)" >> $GITHUB_ENV
           
           # Ensure Jupyter runtime directory exists and set permissions
-          # This is required for kernel connection files
           python3 << 'EOF'
           from jupyter_core.paths import jupyter_runtime_dir
           import os
           runtime_dir = jupyter_runtime_dir()
           os.makedirs(runtime_dir, exist_ok=True)
-          # Ensure runtime directory has proper permissions
           os.chmod(runtime_dir, 0o755)
-          print(f"Jupyter runtime directory: {runtime_dir}")
-          print(f"Runtime directory exists: {os.path.exists(runtime_dir)}")
-          print(f"Runtime directory permissions: {oct(os.stat(runtime_dir).st_mode)}")
           EOF
           
           # Set Jupyter environment variables for kernel execution
-          # These may be needed for kernel to start properly
           echo "JUPYTER_RUNTIME_DIR=$(python3 -c 'from jupyter_core.paths import jupyter_runtime_dir; print(jupyter_runtime_dir())')" >> $GITHUB_ENV
           echo "JUPYTER_DATA_DIR=$(python3 -c 'from jupyter_core.paths import jupyter_data_dir; print(jupyter_data_dir())')" >> $GITHUB_ENV
-
-      - name: Test kernel startup with nbclient
-        run: |
-          # Test if kernel can actually start using nbclient (same way notebook runner uses it)
-          # This helps diagnose kernel startup issues before running notebook
-          echo "=== Testing kernel startup with nbclient ==="
-          python3 << 'EOF'
-          import sys
-          import json
-          from nbformat import v4, write
-          from nbclient import NotebookClient
-          from pathlib import Path
-          import tempfile
-          import os
-          
-          # Create a minimal test notebook
-          test_nb = v4.new_notebook()
-          test_nb.cells.append(v4.new_code_cell('print("Hello from kernel")'))
-          
-          # Write to temporary file
-          with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
-              write(test_nb, f)
-              test_notebook_path = f.name
-          
-          try:
-              print("Attempting to execute test notebook with nbclient...")
-              print(f"Using kernel: python3")
-              print(f"Runtime dir: {os.environ.get('JUPYTER_RUNTIME_DIR', 'not set')}")
-              
-              # Try to execute with nbclient
-              client = NotebookClient(
-                  test_nb,
-                  timeout=30,
-                  kernel_name='python3',
-                  allow_errors=False
-              )
-              
-              print("Starting kernel...")
-              client.execute()
-              print("SUCCESS: Kernel started and executed test cell")
-              
-          except Exception as e:
-              print(f"ERROR: Failed to start kernel with nbclient")
-              print(f"Error type: {type(e).__name__}")
-              print(f"Error message: {str(e)}")
-              import traceback
-              traceback.print_exc()
-              sys.exit(1)
-          finally:
-              # Cleanup
-              if os.path.exists(test_notebook_path):
-                  os.unlink(test_notebook_path)
-          EOF
 
       - name: Check NGC_API_KEY secret
         run: |
