@@ -98,7 +98,8 @@ jobs:
         run: |
           # Get git commit SHA (first 7 characters) for unique temporary file naming
           COMMIT_SHA=$(git rev-parse --short=7 HEAD)
-          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          export COMMIT_SHA  # Export to make it available to Python subprocess
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV  # Save to GitHub Actions env for later steps
           echo "Using commit SHA for temporary notebook: $COMMIT_SHA"
           
           # Create temporary copy of notebook to avoid modifying original
@@ -111,7 +112,7 @@ jobs:
           import json
           import os
           
-          commit_sha = os.environ['COMMIT_SHA']
+          commit_sha = os.environ['COMMIT_SHA']  # Access exported bash variable
           notebook_path = f"notebooks/launchable.{commit_sha}.ipynb"
           
           with open(notebook_path, 'r', encoding='utf-8') as f:
