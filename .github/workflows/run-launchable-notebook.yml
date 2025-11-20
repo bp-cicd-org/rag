@@ -31,14 +31,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Download notebook_runner_nbclient.py
+      - name: Prepare notebook_runner_nbclient.py
         run: |
-          # Download notebook_runner_nbclient.py from Blueprint-Utils repository
-          # This is a generic notebook runner that works with any Jupyter notebook
-          curl -o notebook_runner_nbclient.py \
-            https://raw.githubusercontent.com/nv-blueprint-org/Blueprint-Utils/refs/heads/main/notebook_runner/notebook_runner_nbclient.py
+          # Use local optimized version of notebook_runner_nbclient.py from repository
+          # This version has been fixed to avoid JSON schema validation errors by:
+          # - Not setting execution.skip metadata (causes "True is not of type 'string'" error)
+          # - Using skip_indices and skip_tags directly in SkipCellExecutor
+          # - Relying only on cell tags for skip logic (Jupyter standard)
           chmod +x notebook_runner_nbclient.py
-          echo "Downloaded notebook_runner_nbclient.py from Blueprint-Utils"
+          echo "Using local optimized notebook_runner_nbclient.py"
 
       - name: Install dependencies
         run: |
@@ -109,6 +110,7 @@ jobs:
               nb = json.load(f)
           
           # Find the cell that contains kernel shutdown code (Cell 3)
+          found = False
           for i, cell in enumerate(nb['cells']):
               if cell['cell_type'] == 'code':
                   source = ''.join(cell.get('source', []))
@@ -120,11 +122,33 @@ jobs:
                           cell['metadata']['tags'] = []
                       if 'ci-skip' not in cell['metadata']['tags']:
                           cell['metadata']['tags'].append('ci-skip')
-                      print(f"Added ci-skip tag to Cell {i+1} (kernel restart cell)")
+                      print(f"SUCCESS: Added ci-skip tag to cell index {i} (display as Cell {i+1})")
+                      print(f"Cell content preview: {source[:100]}")
+                      found = True
                       break
+          
+          if not found:
+              print("WARNING: Kernel restart cell not found! Cell 3 will be executed.")
+              print("Searching for cells with 'do_shutdown' keyword...")
+              for i, cell in enumerate(nb['cells']):
+                  if cell['cell_type'] == 'code':
+                      source = ''.join(cell.get('source', []))
+                      if 'shutdown' in source.lower() or 'restart' in source.lower():
+                          print(f"  Cell {i}: {source[:80]}")
           
           with open(notebook_path, 'w', encoding='utf-8') as f:
               json.dump(nb, f, indent=1, ensure_ascii=False)
+          
+          # Verify tags were saved correctly
+          print("\nVerifying tags in saved notebook...")
+          with open(notebook_path, 'r', encoding='utf-8') as f:
+              nb_check = json.load(f)
+          
+          for i, cell in enumerate(nb_check['cells']):
+              if cell['cell_type'] == 'code':
+                  tags = cell.get('metadata', {}).get('tags', [])
+                  if tags:
+                      print(f"  Cell {i} has tags: {tags}")
           EOF
 
       - name: Run notebook with notebook_runner_nbclient.py
