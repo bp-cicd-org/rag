@@ -144,85 +144,78 @@ jobs:
           
           # Output monitoring queue
           output_queue = queue.Queue()
-          rag_server_started = threading.Event()
           
-          def wait_for_rag_server_sync():
-              """Synchronously wait for RAG server to be ready using Docker container status and HTTP health check.
+          # Event to signal when RAG server is ready (HTTP endpoint returns 200)
+          rag_server_ready = threading.Event()
+          
+          def wait_for_rag_server_background():
+              """Background thread to wait for RAG server HTTP health endpoint to be ready.
               
-              This function blocks until the server is ready, ensuring health check cells execute after service is ready.
+              This runs in a separate thread to avoid blocking the output monitor.
+              Only checks HTTP endpoint, ignoring container status (container "Up" != HTTP API ready).
               """
-              print("\n[WORKFLOW] Detected RAG server startup, waiting for service to be ready...", flush=True)
               base_url = "http://0.0.0.0:8081"
               health_url = f"{base_url}/v1/health"
-              max_wait = 300  # 5 minutes
-              check_interval = 1  # 1 second - faster checking for quicker detection
+              max_wait = 60  # 60 seconds - reasonable timeout for service startup
+              check_interval = 2  # 2 seconds between checks
               start_time = time.time()
               attempt = 0
               
-              # Step 1: Wait for container to exist and be running (Docker-level check)
-              print("[WORKFLOW] Step 1: Waiting for rag-server container to be running...", flush=True)
-              container_running = False
-              container_check_start = time.time()
-              while time.time() - container_check_start < 60:  # Wait up to 60 seconds for container
-                  try:
-                      result = subprocess.run(
-                          ['docker', 'ps', '--filter', 'name=rag-server', '--format', '{{.Status}}'],
-                          capture_output=True,
-                          text=True,
-                          timeout=5
-                      )
-                      if result.returncode == 0 and result.stdout.strip():
-                          status = result.stdout.strip()
-                          if 'Up' in status:
-                              container_running = True
-                              print(f"[WORKFLOW] ✅ Container is running: {status}", flush=True)
-                              break
-                  except Exception:
-                      pass
-                  time.sleep(1)
+              print("[WORKFLOW] Background thread: Waiting for HTTP health endpoint to be ready...", flush=True)
               
-              if not container_running:
-                  print("[WORKFLOW] ⚠️  Container not found or not running, proceeding with HTTP check...", flush=True)
-              
-              # Step 2: Wait for HTTP health check endpoint to be ready (application-level check)
-              # This is the most reliable indicator that the service is actually ready to handle requests
-              print("[WORKFLOW] Step 2: Waiting for HTTP health check endpoint to respond...", flush=True)
               while time.time() - start_time < max_wait:
                   attempt += 1
                   try:
                       response = requests.get(health_url, timeout=5)
                       if response.status_code == 200:
                           elapsed = time.time() - start_time
-                          print(f"[WORKFLOW] ✅ RAG server is ready! (waited {elapsed:.1f} seconds, {attempt} attempts)", flush=True)
-                          return True
-                  except requests.exceptions.RequestException:
+                          print(f"[WORKFLOW] SUCCESS: RAG server HTTP endpoint is ready! (waited {elapsed:.1f}s, {attempt} attempts)", flush=True)
+                          rag_server_ready.set()
+                          return
+                  except requests.exceptions.RequestException as e:
                       elapsed = time.time() - start_time
-                      if attempt % 10 == 0:  # Log every 10 seconds (10 attempts * 1 second)
-                          print(f"[WORKFLOW]   Waiting for HTTP endpoint... ({elapsed:.0f}s elapsed, attempt {attempt})", flush=True)
+                      # Log periodically to show progress
+                      if attempt % 5 == 0:  # Every 10 seconds (5 attempts * 2 seconds)
+                          print(f"[WORKFLOW] Still waiting for HTTP endpoint... ({elapsed:.0f}s elapsed, attempt {attempt})", flush=True)
                   
                   time.sleep(check_interval)
               
               elapsed = time.time() - start_time
-              print(f"[WORKFLOW] ⚠️  RAG server did not become ready within {max_wait} seconds (waited {elapsed:.1f}s, {attempt} attempts)", flush=True)
-              return False
+              print(f"[WORKFLOW] WARNING: RAG server did not respond within {max_wait}s (waited {elapsed:.1f}s, {attempt} attempts)", flush=True)
+              print(f"[WORKFLOW] The notebook may encounter errors if it attempts to connect too early.", flush=True)
+              # Don't set the event - let notebook proceed anyway and fail if not ready
           
           def monitor_output(pipe, queue):
-              """Monitor output and detect RAG server startup.
+              """Monitor output and detect RAG server startup and health check execution.
               
-              When RAG server startup is detected, synchronously wait for service to be ready
-              before continuing to monitor output. This ensures health check cells execute after service is ready.
+              When RAG server startup is detected, launch a background thread to wait for service readiness.
+              When health check cell is about to execute, wait for background thread to complete.
+              This ensures health check executes only after service is ready.
               """
+              wait_thread = None
               for line in iter(pipe.readline, ''):
                   if line:
                       queue.put(line)
                       sys.stdout.write(line)
                       sys.stdout.flush()
-                      # Detect RAG server startup and wait synchronously
+                      
+                      # Detect RAG server startup and launch background wait thread
                       if 'Starting RAG microservices' in line or 'Starting RAG microservices...' in line:
-                          print("\n[WORKFLOW] Detected RAG server startup, waiting for service to be ready...", flush=True)
-                          # Synchronously wait for service to be ready (blocks until ready)
-                          # This ensures health check cells execute after service is ready
-                          wait_for_rag_server_sync()
+                          print("\n[WORKFLOW] Detected RAG server startup signal", flush=True)
+                          # Launch background thread to wait for HTTP endpoint
+                          # This does NOT block the output monitor
+                          wait_thread = threading.Thread(target=wait_for_rag_server_background, daemon=True)
+                          wait_thread.start()
+                      
+                      # Detect health check cell execution - wait for background thread to complete
+                      # This pattern matches the health check cell in the notebook
+                      if wait_thread and ('Test the RAG server health endpoint' in line or 'Testing RAG server health endpoint' in line):
+                          print("\n[WORKFLOW] Detected health check cell, waiting for RAG server to be ready...", flush=True)
+                          # Wait for background thread to signal or timeout
+                          if rag_server_ready.wait(timeout=60):  # Wait up to 60 seconds
+                              print("[WORKFLOW] RAG server is ready, health check can proceed", flush=True)
+                          else:
+                              print("[WORKFLOW] WARNING: Timeout waiting for RAG server, health check may fail", flush=True)
               pipe.close()
           
           # Start notebook runner process
