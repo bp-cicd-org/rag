@@ -3,7 +3,7 @@ name: Run Launchable Notebook
 on:
   # Manual trigger
   workflow_dispatch:
-  # Trigger on push to main/master/github-action-workflow when notebook changes
+  # Trigger on push to main/master/github-action-workflow when notebook or workflow changes
   push:
     branches:
       - main
@@ -11,10 +11,12 @@ on:
       - github-action-workflow
     paths:
       - 'notebooks/launchable.ipynb'
-  # Trigger on PR when notebook changes
+      - '.github/workflows/run-launchable-notebook.yml'
+  # Trigger on PR when notebook or workflow changes
   pull_request:
     paths:
       - 'notebooks/launchable.ipynb'
+      - '.github/workflows/run-launchable-notebook.yml'
 
 jobs:
   run-notebook:
