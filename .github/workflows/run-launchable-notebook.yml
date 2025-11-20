@@ -52,19 +52,65 @@ jobs:
         run: |
           # Install ipykernel for Python kernel support
           pip install ipykernel
+          
           # Register Python kernel for Jupyter
           # Using --user flag installs kernel in user directory
           python3 -m ipykernel install --user --name python3 --display-name "Python 3"
           
           # Verify kernel installation
-          echo "Checking installed kernels:"
+          echo "=== Checking installed kernels ==="
           jupyter kernelspec list
           
+          # Check kernel spec location and content
+          echo "=== Kernel spec details ==="
+          KERNEL_DIR=$(jupyter kernelspec list | grep python3 | awk '{print $NF}')
+          if [ -n "$KERNEL_DIR" ]; then
+            echo "Kernel directory: $KERNEL_DIR"
+            echo "Kernel spec file:"
+            cat "$KERNEL_DIR/kernel.json" || echo "Failed to read kernel.json"
+            echo "Kernel executable:"
+            cat "$KERNEL_DIR/kernel.json" | grep -A 1 argv || echo "Failed to extract argv"
+          fi
+          
           # Verify IPython is available
+          echo "=== Verifying IPython ==="
           python3 -c "import IPython; print(f'IPython version: {IPython.__version__}')"
           
           # Verify kernel can be imported
+          echo "=== Verifying ipykernel ==="
           python3 -c "import ipykernel; print(f'ipykernel version: {ipykernel.__version__}')"
+          
+          # Test kernel startup manually
+          echo "=== Testing kernel startup ==="
+          python3 << 'EOF'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          
+          # Get kernel spec path
+          result = subprocess.run(['jupyter', 'kernelspec', 'list', '--json'], 
+                                 capture_output=True, text=True)
+          if result.returncode == 0:
+              kernels = json.loads(result.stdout)
+              if 'python3' in kernels.get('kernelspecs', {}):
+                  spec_path = kernels['kernelspecs']['python3']['resource_dir']
+                  kernel_json = Path(spec_path) / 'kernel.json'
+                  if kernel_json.exists():
+                      with open(kernel_json) as f:
+                          kernel_config = json.load(f)
+                      print(f"Kernel executable: {kernel_config.get('argv', [])}")
+                      # Test if kernel executable exists and is executable
+                      if kernel_config.get('argv'):
+                          exe = kernel_config['argv'][0]
+                          import os
+                          if os.path.exists(exe):
+                              print(f"Kernel executable exists: {exe}")
+                              print(f"Kernel executable is executable: {os.access(exe, os.X_OK)}")
+                          else:
+                              print(f"ERROR: Kernel executable not found: {exe}")
+                              sys.exit(1)
+          EOF
 
       - name: Set up environment variables
         run: |
@@ -78,15 +124,70 @@ jobs:
           # The notebook uses this to set proper file permissions in containers
           echo "USERID=$(id -u)" >> $GITHUB_ENV
           
-          # Ensure Jupyter runtime directory exists
+          # Ensure Jupyter runtime directory exists and set permissions
           # This is required for kernel connection files
-          python << 'EOF'
+          python3 << 'EOF'
           from jupyter_core.paths import jupyter_runtime_dir
           import os
           runtime_dir = jupyter_runtime_dir()
           os.makedirs(runtime_dir, exist_ok=True)
+          # Ensure runtime directory has proper permissions
+          os.chmod(runtime_dir, 0o755)
           print(f"Jupyter runtime directory: {runtime_dir}")
           print(f"Runtime directory exists: {os.path.exists(runtime_dir)}")
+          print(f"Runtime directory permissions: {oct(os.stat(runtime_dir).st_mode)}")
+          EOF
+          
+          # Set Jupyter environment variables for kernel execution
+          # These may be needed for kernel to start properly
+          echo "JUPYTER_RUNTIME_DIR=$(python3 -c 'from jupyter_core.paths import jupyter_runtime_dir; print(jupyter_runtime_dir())')" >> $GITHUB_ENV
+          echo "JUPYTER_DATA_DIR=$(python3 -c 'from jupyter_core.paths import jupyter_data_dir; print(jupyter_data_dir())')" >> $GITHUB_ENV
+
+      - name: Test kernel startup
+        run: |
+          # Test if kernel can actually start and respond
+          # This helps diagnose kernel startup issues before running notebook
+          echo "=== Testing kernel startup ==="
+          python3 << 'EOF'
+          import subprocess
+          import sys
+          import json
+          from pathlib import Path
+          
+          # Get kernel spec
+          result = subprocess.run(['jupyter', 'kernelspec', 'list', '--json'], 
+                                 capture_output=True, text=True, check=True)
+          kernels = json.loads(result.stdout)
+          
+          if 'python3' not in kernels.get('kernelspecs', {}):
+              print("ERROR: python3 kernel not found")
+              sys.exit(1)
+          
+          spec_path = kernels['kernelspecs']['python3']['resource_dir']
+          kernel_json = Path(spec_path) / 'kernel.json'
+          
+          with open(kernel_json) as f:
+              kernel_config = json.load(f)
+          
+          kernel_exe = kernel_config['argv'][0]
+          
+          # Test kernel executable directly
+          print(f"Testing kernel executable: {kernel_exe}")
+          test_result = subprocess.run(
+              [kernel_exe, '-c', 'import sys; print(f"Python {sys.version}")'],
+              capture_output=True,
+              text=True,
+              timeout=10
+          )
+          
+          if test_result.returncode == 0:
+              print(f"SUCCESS: Kernel executable works")
+              print(f"Output: {test_result.stdout}")
+          else:
+              print(f"ERROR: Kernel executable test failed")
+              print(f"STDOUT: {test_result.stdout}")
+              print(f"STDERR: {test_result.stderr}")
+              sys.exit(1)
           EOF
 
       - name: Check NGC_API_KEY secret
