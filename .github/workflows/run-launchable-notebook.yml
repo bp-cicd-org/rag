@@ -31,15 +31,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Prepare notebook_runner_nbclient.py
+      - name: Download notebook_runner_nbclient.py
         run: |
-          # Use local optimized version of notebook_runner_nbclient.py from repository
-          # This version has been fixed to avoid JSON schema validation errors by:
-          # - Not setting execution.skip metadata (causes "True is not of type 'string'" error)
-          # - Using skip_indices and skip_tags directly in SkipCellExecutor
-          # - Relying only on cell tags for skip logic (Jupyter standard)
+          # Download notebook_runner_nbclient.py from Blueprint-Utils repository
+          # This is a generic notebook runner that works with any Jupyter notebook
+          # Remote version has been updated with JSON schema validation fixes
+          curl -o notebook_runner_nbclient.py \
+            https://raw.githubusercontent.com/nv-blueprint-org/Blueprint-Utils/refs/heads/main/notebook_runner/notebook_runner_nbclient.py
           chmod +x notebook_runner_nbclient.py
-          echo "Using local optimized notebook_runner_nbclient.py"
+          echo "Downloaded notebook_runner_nbclient.py from Blueprint-Utils"
 
       - name: Install dependencies
         run: |
