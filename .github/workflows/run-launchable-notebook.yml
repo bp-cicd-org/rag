@@ -1,0 +1,103 @@
+name: Run Launchable Notebook
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+  # Trigger on push to main/master when notebook changes
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'notebooks/launchable.ipynb'
+  # Trigger on PR when notebook changes
+  pull_request:
+    paths:
+      - 'notebooks/launchable.ipynb'
+
+jobs:
+  run-notebook:
+    runs-on: arc-runner-set-oke-org-poc-4-gpu
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Download notebook_runner.py
+        run: |
+          curl -o notebook_runner.py \
+            https://raw.githubusercontent.com/nv-blueprint-org/Blueprint-Utils/refs/heads/main/notebook_runner/notebook_runner.py
+          chmod +x notebook_runner.py
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install papermill jupyter
+
+      - name: Set up environment variables
+        run: |
+          # Set MODEL_DIRECTORY for model caching
+          # The notebook uses this directory to cache downloaded NIM models
+          # Default location is ~/.cache/model-cache if not set
+          echo "MODEL_DIRECTORY=$HOME/.cache/model-cache" >> $GITHUB_ENV
+          mkdir -p $HOME/.cache/model-cache
+          
+          # Set USERID which is required by Docker containers
+          # The notebook uses this to set proper file permissions in containers
+          echo "USERID=$(id -u)" >> $GITHUB_ENV
+
+      - name: Check NGC_API_KEY secret
+        run: |
+          if [ -z "${{ secrets.NGC_API_KEY }}" ]; then
+            echo "Warning: NGC_API_KEY secret is not set in GitHub repository settings"
+            echo "The notebook execution may fail if NGC_API_KEY is required"
+            echo "Please set NGC_API_KEY in: Settings -> Secrets and variables -> Actions"
+          else
+            echo "NGC_API_KEY secret is configured"
+          fi
+
+      - name: Run notebook with notebook_runner.py
+        run: |
+          python notebook_runner.py \
+            -f notebooks/launchable.ipynb \
+            --output-dir notebook_output \
+            -e NGC_API_KEY=${{ secrets.NGC_API_KEY }}
+        continue-on-error: true
+        env:
+          # NGC_API_KEY is required for:
+          # 1. Authenticating with NGC container registry (nvcr.io) to pull NIM images
+          # 2. Accessing NVIDIA hosted NIM endpoints for LLM inference
+          # 3. Downloading models from NGC catalog
+          # This must be set as a GitHub secret in repository settings:
+          # Settings -> Secrets and variables -> Actions -> New repository secret
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+          
+          # MODEL_DIRECTORY is set in previous step for model caching
+          MODEL_DIRECTORY: ${{ env.MODEL_DIRECTORY }}
+          
+          # USERID is set in previous step for Docker container user permissions
+          USERID: ${{ env.USERID }}
+
+      - name: Upload HTML output
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launchable-notebook-html
+          path: |
+            notebook_output/*.html
+            notebook_output/*.executed.ipynb
+          retention-days: 30
+
+      - name: Upload complete output directory
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: notebook-runner-complete-output
+          path: notebook_output/
+          retention-days: 30
+
