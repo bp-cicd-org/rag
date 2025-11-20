@@ -143,51 +143,57 @@ jobs:
           echo "JUPYTER_RUNTIME_DIR=$(python3 -c 'from jupyter_core.paths import jupyter_runtime_dir; print(jupyter_runtime_dir())')" >> $GITHUB_ENV
           echo "JUPYTER_DATA_DIR=$(python3 -c 'from jupyter_core.paths import jupyter_data_dir; print(jupyter_data_dir())')" >> $GITHUB_ENV
 
-      - name: Test kernel startup
+      - name: Test kernel startup with nbclient
         run: |
-          # Test if kernel can actually start and respond
+          # Test if kernel can actually start using nbclient (same way notebook runner uses it)
           # This helps diagnose kernel startup issues before running notebook
-          echo "=== Testing kernel startup ==="
+          echo "=== Testing kernel startup with nbclient ==="
           python3 << 'EOF'
-          import subprocess
           import sys
           import json
+          from nbformat import v4, write
+          from nbclient import NotebookClient
           from pathlib import Path
+          import tempfile
+          import os
           
-          # Get kernel spec
-          result = subprocess.run(['jupyter', 'kernelspec', 'list', '--json'], 
-                                 capture_output=True, text=True, check=True)
-          kernels = json.loads(result.stdout)
+          # Create a minimal test notebook
+          test_nb = v4.new_notebook()
+          test_nb.cells.append(v4.new_code_cell('print("Hello from kernel")'))
           
-          if 'python3' not in kernels.get('kernelspecs', {}):
-              print("ERROR: python3 kernel not found")
+          # Write to temporary file
+          with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+              write(test_nb, f)
+              test_notebook_path = f.name
+          
+          try:
+              print("Attempting to execute test notebook with nbclient...")
+              print(f"Using kernel: python3")
+              print(f"Runtime dir: {os.environ.get('JUPYTER_RUNTIME_DIR', 'not set')}")
+              
+              # Try to execute with nbclient
+              client = NotebookClient(
+                  test_nb,
+                  timeout=30,
+                  kernel_name='python3',
+                  allow_errors=False
+              )
+              
+              print("Starting kernel...")
+              client.execute()
+              print("SUCCESS: Kernel started and executed test cell")
+              
+          except Exception as e:
+              print(f"ERROR: Failed to start kernel with nbclient")
+              print(f"Error type: {type(e).__name__}")
+              print(f"Error message: {str(e)}")
+              import traceback
+              traceback.print_exc()
               sys.exit(1)
-          
-          spec_path = kernels['kernelspecs']['python3']['resource_dir']
-          kernel_json = Path(spec_path) / 'kernel.json'
-          
-          with open(kernel_json) as f:
-              kernel_config = json.load(f)
-          
-          kernel_exe = kernel_config['argv'][0]
-          
-          # Test kernel executable directly
-          print(f"Testing kernel executable: {kernel_exe}")
-          test_result = subprocess.run(
-              [kernel_exe, '-c', 'import sys; print(f"Python {sys.version}")'],
-              capture_output=True,
-              text=True,
-              timeout=10
-          )
-          
-          if test_result.returncode == 0:
-              print(f"SUCCESS: Kernel executable works")
-              print(f"Output: {test_result.stdout}")
-          else:
-              print(f"ERROR: Kernel executable test failed")
-              print(f"STDOUT: {test_result.stdout}")
-              print(f"STDERR: {test_result.stderr}")
-              sys.exit(1)
+          finally:
+              # Cleanup
+              if os.path.exists(test_notebook_path):
+                  os.unlink(test_notebook_path)
           EOF
 
       - name: Check NGC_API_KEY secret
