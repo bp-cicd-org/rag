@@ -40,18 +40,31 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install nbclient, jupyter, and ipykernel for notebook execution
+          # Install nbclient and jupyter for notebook execution
           # nbclient provides fine-grained control over cell execution
-          # ipykernel is required for Python kernel to run notebooks
-          pip install nbclient jupyter ipykernel
+          pip install nbclient jupyter
           # Pre-install notebook dependencies to avoid kernel restart issue
           # Cell 1 installs these packages, but Cell 3 tries to restart kernel
           # which causes kernel death in automated execution environment
           pip install python-dotenv aiohttp
+
+      - name: Install and register Jupyter kernel
+        run: |
+          # Install ipykernel for Python kernel support
+          pip install ipykernel
+          # Register Python kernel for Jupyter
+          # Using --user flag installs kernel in user directory
+          python3 -m ipykernel install --user --name python3 --display-name "Python 3"
           
-          # Install Python kernel for Jupyter
-          # This is required for nbclient to execute notebooks
-          python -m ipykernel install --user --name python3 --display-name "Python 3"
+          # Verify kernel installation
+          echo "Checking installed kernels:"
+          jupyter kernelspec list
+          
+          # Verify IPython is available
+          python3 -c "import IPython; print(f'IPython version: {IPython.__version__}')"
+          
+          # Verify kernel can be imported
+          python3 -c "import ipykernel; print(f'ipykernel version: {ipykernel.__version__}')"
 
       - name: Set up environment variables
         run: |
@@ -64,6 +77,17 @@ jobs:
           # Set USERID which is required by Docker containers
           # The notebook uses this to set proper file permissions in containers
           echo "USERID=$(id -u)" >> $GITHUB_ENV
+          
+          # Ensure Jupyter runtime directory exists
+          # This is required for kernel connection files
+          python << 'EOF'
+          from jupyter_core.paths import jupyter_runtime_dir
+          import os
+          runtime_dir = jupyter_runtime_dir()
+          os.makedirs(runtime_dir, exist_ok=True)
+          print(f"Jupyter runtime directory: {runtime_dir}")
+          print(f"Runtime directory exists: {os.path.exists(runtime_dir)}")
+          EOF
 
       - name: Check NGC_API_KEY secret
         run: |
