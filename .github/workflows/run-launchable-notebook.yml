@@ -327,15 +327,16 @@ jobs:
 
       - name: Wait for RAG Playground to be ready
         run: |
-          # Wait for rag-playground frontend to be ready before running tests
+          # Wait for rag-frontend to be ready before running tests
           # RAG backend health check in notebook execution only confirms backend is ready
-          # Frontend (rag-playground:3000) may still be starting up
+          # Frontend (rag-frontend:3000) may still be starting up
+          # Note: Service was renamed from rag-playground to rag-frontend
           python3 << 'EOF'
           import time
           import subprocess
           import sys
           
-          playground_url = "http://rag-playground:3000"
+          playground_url = "http://rag-frontend:3000"
           max_wait = 60  # 60 seconds timeout
           check_interval = 2  # Check every 2 seconds
           start_time = time.time()
@@ -388,7 +389,7 @@ jobs:
             -v ./rag_2_1_launchable.html:/app/input/rag_2_1_launchable.html \
             -v "$(pwd):/workspace" \
             nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-            pytest -m "rag" --rag-playground-url="http://rag-playground:3000" --disable-warnings --html=/workspace/rag_2_1_test_report.html
+            pytest -m "rag" --rag-playground-url="http://rag-frontend:3000" --disable-warnings --html=/workspace/rag_2_1_test_report.html
 
       - name: Test RAG with rag_2_3_launchable.html
         if: always()
@@ -397,7 +398,7 @@ jobs:
             -v ./rag_2_3_launchable.html:/app/input/rag_2_3_launchable.html \
             -v "$(pwd):/workspace" \
             nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-            pytest -m "rag" --rag-playground-url="http://rag-playground:3000" --disable-warnings --html=/workspace/rag_2_3_test_report.html
+            pytest -m "rag" --rag-playground-url="http://rag-frontend:3000" --disable-warnings --html=/workspace/rag_2_3_test_report.html
 
       - name: Test RAG with generated launchable HTML
         if: always()
@@ -407,7 +408,7 @@ jobs:
             -v ./notebook_output/launchable.$COMMIT_SHA.html:/app/input/launchable.$COMMIT_SHA.html \
             -v "$(pwd):/workspace" \
             nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-            pytest -m "rag" --rag-playground-url="http://rag-playground:3000" --disable-warnings --html=/workspace/rag_${COMMIT_SHA}_test_report.html
+            pytest -m "rag" --rag-playground-url="http://rag-frontend:3000" --disable-warnings --html=/workspace/rag_${COMMIT_SHA}_test_report.html
 
       - name: Upload rag_2_1 test report
         uses: actions/upload-artifact@v4
