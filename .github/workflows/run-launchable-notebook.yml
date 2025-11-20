@@ -130,9 +130,10 @@ jobs:
       - name: Run notebook with notebook_runner_nbclient.py
         id: run_notebook
         run: |
-          # Execute notebook runner with output monitoring
-          # Monitor output to detect when RAG server is started, then wait for it to be ready
-          # This prevents ServerDisconnectedError when health check cell executes too early
+          # Execute notebook runner with output monitoring and subprocess pause/resume mechanism
+          # When health check cell is about to execute, pause the subprocess using SIGSTOP
+          # Background thread waits for HTTP endpoint to be ready, then resumes subprocess using SIGCONT
+          # This prevents ServerDisconnectedError while avoiding deadlock from blocking output monitor
           python3 << 'EOF'
           import subprocess
           import sys
@@ -141,16 +142,21 @@ jobs:
           import threading
           import queue
           import os
+          import signal
           
           # Output monitoring queue
           output_queue = queue.Queue()
           
-          # Event to signal when RAG server is ready (HTTP endpoint returns 200)
-          rag_server_ready = threading.Event()
+          # Global process reference for pause/resume
+          notebook_process = None
           
-          def wait_for_rag_server_background():
+          # Flag to track if process was paused
+          process_paused = threading.Event()
+          
+          def wait_for_rag_server_and_resume():
               """Background thread to wait for RAG server HTTP health endpoint to be ready.
               
+              Once ready, resume the paused notebook subprocess using SIGCONT.
               This runs in a separate thread to avoid blocking the output monitor.
               Only checks HTTP endpoint, ignoring container status (container "Up" != HTTP API ready).
               """
@@ -170,9 +176,13 @@ jobs:
                       if response.status_code == 200:
                           elapsed = time.time() - start_time
                           print(f"[WORKFLOW] SUCCESS: RAG server HTTP endpoint is ready! (waited {elapsed:.1f}s, {attempt} attempts)", flush=True)
-                          rag_server_ready.set()
+                          
+                          # Resume the paused process if it was paused
+                          if process_paused.is_set() and notebook_process:
+                              print("[WORKFLOW] Resuming notebook execution with SIGCONT...", flush=True)
+                              notebook_process.send_signal(signal.SIGCONT)
                           return
-                  except requests.exceptions.RequestException as e:
+                  except requests.exceptions.RequestException:
                       elapsed = time.time() - start_time
                       # Log periodically to show progress
                       if attempt % 5 == 0:  # Every 10 seconds (5 attempts * 2 seconds)
@@ -182,15 +192,21 @@ jobs:
               
               elapsed = time.time() - start_time
               print(f"[WORKFLOW] WARNING: RAG server did not respond within {max_wait}s (waited {elapsed:.1f}s, {attempt} attempts)", flush=True)
-              print(f"[WORKFLOW] The notebook may encounter errors if it attempts to connect too early.", flush=True)
-              # Don't set the event - let notebook proceed anyway and fail if not ready
+              
+              # Resume process anyway to let it fail gracefully rather than hanging indefinitely
+              if process_paused.is_set() and notebook_process:
+                  print("[WORKFLOW] Resuming notebook execution despite timeout (may encounter errors)...", flush=True)
+                  notebook_process.send_signal(signal.SIGCONT)
           
           def monitor_output(pipe, queue):
               """Monitor output and detect RAG server startup and health check execution.
               
               When RAG server startup is detected, launch a background thread to wait for service readiness.
-              When health check cell is about to execute, wait for background thread to complete.
-              This ensures health check executes only after service is ready.
+              When health check cell is about to execute, pause the subprocess using SIGSTOP.
+              The background thread will resume it with SIGCONT once service is ready.
+              
+              This approach avoids blocking the output monitor (preventing deadlock) while ensuring
+              the health check cell only executes after the service is ready.
               """
               wait_thread = None
               for line in iter(pipe.readline, ''):
@@ -202,20 +218,20 @@ jobs:
                       # Detect RAG server startup and launch background wait thread
                       if 'Starting RAG microservices' in line or 'Starting RAG microservices...' in line:
                           print("\n[WORKFLOW] Detected RAG server startup signal", flush=True)
-                          # Launch background thread to wait for HTTP endpoint
-                          # This does NOT block the output monitor
-                          wait_thread = threading.Thread(target=wait_for_rag_server_background, daemon=True)
+                          # Launch background thread to wait for HTTP endpoint and resume process
+                          wait_thread = threading.Thread(target=wait_for_rag_server_and_resume, daemon=True)
                           wait_thread.start()
                       
-                      # Detect health check cell execution - wait for background thread to complete
-                      # This pattern matches the health check cell in the notebook
+                      # Detect health check cell execution - pause subprocess to wait for service
+                      # Pattern matches the health check cell in the notebook
                       if wait_thread and ('Test the RAG server health endpoint' in line or 'Testing RAG server health endpoint' in line):
-                          print("\n[WORKFLOW] Detected health check cell, waiting for RAG server to be ready...", flush=True)
-                          # Wait for background thread to signal or timeout
-                          if rag_server_ready.wait(timeout=60):  # Wait up to 60 seconds
-                              print("[WORKFLOW] RAG server is ready, health check can proceed", flush=True)
-                          else:
-                              print("[WORKFLOW] WARNING: Timeout waiting for RAG server, health check may fail", flush=True)
+                          print("\n[WORKFLOW] Detected health check cell, pausing notebook execution...", flush=True)
+                          # Pause the subprocess using SIGSTOP (does NOT block this monitor thread)
+                          # Background thread will resume it with SIGCONT once HTTP endpoint is ready
+                          if notebook_process:
+                              notebook_process.send_signal(signal.SIGSTOP)
+                              process_paused.set()
+                              print("[WORKFLOW] Notebook paused with SIGSTOP, waiting for HTTP endpoint...", flush=True)
               pipe.close()
           
           # Start notebook runner process
@@ -237,8 +253,12 @@ jobs:
               env=env
           )
           
+          # Save process reference globally for pause/resume mechanism
+          notebook_process = process
+          
           # Monitor output in separate thread
-          # The monitor will synchronously wait for RAG server when startup is detected
+          # The monitor will pause subprocess when health check is detected
+          # Background thread will resume it once HTTP endpoint is ready
           monitor_thread = threading.Thread(target=monitor_output, args=(process.stdout, output_queue), daemon=True)
           monitor_thread.start()
           
