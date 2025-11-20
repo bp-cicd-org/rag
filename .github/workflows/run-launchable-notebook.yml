@@ -319,9 +319,15 @@ jobs:
         if: always()
         with:
           name: launchable-notebook-html
-          path: |
-            notebook_output/*.html
-            notebook_output/*.executed.ipynb
+          path: notebook_output/*.html
+          retention-days: 30
+
+      - name: Upload executed notebook
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launchable-notebook-executed
+          path: notebook_output/*.executed.ipynb
           retention-days: 30
 
       - name: Upload complete output directory
