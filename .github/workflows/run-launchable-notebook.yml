@@ -325,6 +325,114 @@ jobs:
           # Use COMMIT_SHA from environment variable
           rm -f notebooks/launchable.${{ env.COMMIT_SHA }}.ipynb
 
+      - name: Wait for RAG Playground to be ready
+        run: |
+          # Wait for rag-playground frontend to be ready before running tests
+          # RAG backend health check in notebook execution only confirms backend is ready
+          # Frontend (rag-playground:3000) may still be starting up
+          python3 << 'EOF'
+          import time
+          import subprocess
+          import sys
+          
+          playground_url = "http://rag-playground:3000"
+          max_wait = 60  # 60 seconds timeout
+          check_interval = 2  # Check every 2 seconds
+          start_time = time.time()
+          attempt = 0
+          
+          print(f"Waiting for RAG Playground to be ready at {playground_url}...")
+          
+          while time.time() - start_time < max_wait:
+              attempt += 1
+              try:
+                  # Use curl from within docker container on nvidia-rag network
+                  # This ensures we're checking from the same network context as tests
+                  result = subprocess.run(
+                      [
+                          'docker', 'run', '--rm', '--network', 'nvidia-rag',
+                          'curlimages/curl:latest',
+                          'curl', '-s', '-o', '/dev/null', '-w', '%{http_code}',
+                          playground_url
+                      ],
+                      capture_output=True,
+                      text=True,
+                      timeout=5
+                  )
+                  
+                  if result.returncode == 0:
+                      http_code = result.stdout.strip()
+                      if http_code.startswith('2') or http_code.startswith('3'):  # 2xx or 3xx
+                          elapsed = time.time() - start_time
+                          print(f"SUCCESS: RAG Playground is ready (HTTP {http_code}, waited {elapsed:.1f}s, {attempt} attempts)")
+                          sys.exit(0)
+              except Exception as e:
+                  pass
+              
+              elapsed = time.time() - start_time
+              if attempt % 5 == 0:  # Log every 10 seconds
+                  print(f"Still waiting for RAG Playground... ({elapsed:.0f}s elapsed, attempt {attempt})")
+              
+              time.sleep(check_interval)
+          
+          elapsed = time.time() - start_time
+          print(f"WARNING: RAG Playground did not respond within {max_wait}s (waited {elapsed:.1f}s, {attempt} attempts)")
+          print("Tests may fail if playground is not ready")
+          sys.exit(1)
+          EOF
+
+      - name: Test RAG with rag_2_1_launchable.html
+        if: always()
+        run: |
+          docker run --network nvidia-rag \
+            -v ./rag_2_1_launchable.html:/app/input/rag_2_1_launchable.html \
+            -v "$(pwd):/workspace" \
+            nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
+            pytest -m "rag" --rag-playground-url="http://rag-playground:3000" --disable-warnings --html=/workspace/rag_2_1_test_report.html
+
+      - name: Test RAG with rag_2_3_launchable.html
+        if: always()
+        run: |
+          docker run --network nvidia-rag \
+            -v ./rag_2_3_launchable.html:/app/input/rag_2_3_launchable.html \
+            -v "$(pwd):/workspace" \
+            nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
+            pytest -m "rag" --rag-playground-url="http://rag-playground:3000" --disable-warnings --html=/workspace/rag_2_3_test_report.html
+
+      - name: Test RAG with generated launchable HTML
+        if: always()
+        run: |
+          COMMIT_SHA="${{ env.COMMIT_SHA }}"
+          docker run --network nvidia-rag \
+            -v ./notebook_output/launchable.$COMMIT_SHA.html:/app/input/launchable.$COMMIT_SHA.html \
+            -v "$(pwd):/workspace" \
+            nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
+            pytest -m "rag" --rag-playground-url="http://rag-playground:3000" --disable-warnings --html=/workspace/rag_${COMMIT_SHA}_test_report.html
+
+      - name: Upload rag_2_1 test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rag-2-1-test-report
+          path: rag_2_1_test_report.html
+          retention-days: 30
+
+      - name: Upload rag_2_3 test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rag-2-3-test-report
+          path: rag_2_3_test_report.html
+          retention-days: 30
+
+      - name: Upload generated notebook test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rag-generated-test-report
+          path: rag_${{ env.COMMIT_SHA }}_test_report.html
+          retention-days: 30
+
       - name: Upload HTML output
         uses: actions/upload-artifact@v4
         if: always()
