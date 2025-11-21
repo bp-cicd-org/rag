@@ -388,33 +388,6 @@ jobs:
           sys.exit(1)
           EOF
 
-      # - name: Test RAG with rag_2_1_launchable.html
-      #   if: always()
-      #   run: |
-      #     docker run --network nvidia-rag \
-      #       -v ./rag_2_1_launchable.html:/app/input/rag_2_1_launchable.html \
-      #       -v "$(pwd):/workspace" \
-      #       nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-      #       pytest -m "rag" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_2_1_test_report.html
-
-      - name: Test RAG with rag_2_3_launchable.html - notebook
-        if: always()
-        run: |
-          docker run --network nvidia-rag \
-            -v ./rag_2_3_launchable.html:/app/input/rag_2_3_launchable.html \
-            -v "$(pwd):/workspace" \
-            nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-            pytest -m "rag and notebook" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_2_3_test_report.html
-
-      - name: Test RAG with rag_2_3_launchable.html - UI
-        if: always()
-        run: |
-          docker run --network nvidia-rag \
-            -v ./rag_2_3_launchable.html:/app/input/rag_2_3_launchable.html \
-            -v "$(pwd):/workspace" \
-            nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-            pytest -m "rag and ui" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_2_3_test_report.html
-
       - name: Test RAG with generated launchable HTML - notebook
         if: always()
         run: |
@@ -423,7 +396,7 @@ jobs:
             -v ./notebook_output/launchable.$COMMIT_SHA.html:/app/input/rag_2_3_launchable.html \
             -v "$(pwd):/workspace" \
             nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-            pytest -m "rag and notebook" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_${COMMIT_SHA}_test_report.html
+            pytest -m "rag and notebook" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_${COMMIT_SHA}_test_report_notebook.html
 
       - name: Test RAG with generated launchable HTML - UI
         if: always()
@@ -433,22 +406,14 @@ jobs:
             -v ./notebook_output/launchable.$COMMIT_SHA.html:/app/input/rag_2_3_launchable.html \
             -v "$(pwd):/workspace" \
             nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
-            pytest -m "rag and ui" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_${COMMIT_SHA}_test_report.html
+            pytest -m "rag and ui" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_${COMMIT_SHA}_test_report_ui.html
 
-      - name: Upload rag_2_1 test report
+      - name: Upload generated notebook test report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rag-2-1-test-report
-          path: rag_2_1_test_report.html
-          retention-days: 30
-
-      - name: Upload rag_2_3 test report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: rag-2-3-test-report
-          path: rag_2_3_test_report.html
+          name: rag-generated-test-report
+          path: rag_${{ env.COMMIT_SHA }}_test_report_notebook.html
           retention-days: 30
 
       - name: Upload generated notebook test report
@@ -456,7 +421,7 @@ jobs:
         if: always()
         with:
           name: rag-generated-test-report
-          path: rag_${{ env.COMMIT_SHA }}_test_report.html
+          path: rag_${{ env.COMMIT_SHA }}_test_report_ui.html
           retention-days: 30
 
       - name: Upload HTML output
