@@ -31,13 +31,14 @@ jobs:
 
       - name: Download notebook_runner_nbclient.py
         run: |
-          # Download notebook_runner_nbclient.py from Blueprint-Utils repository
-          # This is a generic notebook runner that works with any Jupyter notebook
-          # Remote version has been updated with JSON schema validation fixes
-          curl -o notebook_runner_nbclient.py \
-            https://raw.githubusercontent.com/nv-blueprint-org/Blueprint-Utils/refs/heads/main/notebook_runner/notebook_runner_nbclient.py
+          # Download notebook_runner_nbclient.py from blueprint-github-test private repository
+          # Using GitLab API with Personal Access Token for authentication
+          # Token is stored in GitHub Secrets: BLUEPRINT_GITHUB_TEST_TOKEN
+          curl --header "PRIVATE-TOKEN: ${{ secrets.BLUEPRINT_GITHUB_TEST_TOKEN }}" \
+            -o notebook_runner_nbclient.py \
+            "https://gitlab-master.nvidia.com/cloud-service-qa/Blueprint/blueprint-github-test/-/raw/notebook_runner/utils/notebook_runner/notebook_runner_nbclient.py"
           chmod +x notebook_runner_nbclient.py
-          echo "Downloaded notebook_runner_nbclient.py from Blueprint-Utils"
+          echo "Downloaded notebook_runner_nbclient.py from blueprint-github-test (notebook_runner branch)"
 
       - name: Install dependencies
         run: |
@@ -389,7 +390,7 @@ jobs:
       #       nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
       #       pytest -m "rag" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_2_1_test_report.html
 
-      - name: Test RAG with rag_2_3_launchable.html
+      - name: Test RAG with rag_2_3_launchable.html - notebook
         if: always()
         run: |
           docker run --network nvidia-rag \
@@ -398,15 +399,34 @@ jobs:
             nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
             pytest -m "rag and notebook" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_2_3_test_report.html
 
-      - name: Test RAG with generated launchable HTML
+      - name: Test RAG with rag_2_3_launchable.html - UI
+        if: always()
+        run: |
+          docker run --network nvidia-rag \
+            -v ./rag_2_3_launchable.html:/app/input/rag_2_3_launchable.html \
+            -v "$(pwd):/workspace" \
+            nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
+            pytest -m "rag and ui" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_2_3_test_report.html
+
+      - name: Test RAG with generated launchable HTML - notebook
         if: always()
         run: |
           COMMIT_SHA="${{ env.COMMIT_SHA }}"
           docker run --network nvidia-rag \
-            -v ./notebook_output/launchable.$COMMIT_SHA.html:/app/input/launchable.$COMMIT_SHA.html \
+            -v ./notebook_output/launchable.$COMMIT_SHA.html:/app/input/rag_2_3_launchable.html \
             -v "$(pwd):/workspace" \
             nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
             pytest -m "rag and notebook" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_${COMMIT_SHA}_test_report.html
+
+      - name: Test RAG with generated launchable HTML - UI
+        if: always()
+        run: |
+          COMMIT_SHA="${{ env.COMMIT_SHA }}"
+          docker run --network nvidia-rag \
+            -v ./notebook_output/launchable.$COMMIT_SHA.html:/app/input/rag_2_3_launchable.html \
+            -v "$(pwd):/workspace" \
+            nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest \
+            pytest -m "rag and ui" --rag-playground-url="http://rag-frontend:3000" --api-url="http://rag-server:8081" --disable-warnings --self-contained-html --html=/workspace/rag_${COMMIT_SHA}_test_report.html
 
       - name: Upload rag_2_1 test report
         uses: actions/upload-artifact@v4
