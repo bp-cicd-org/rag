@@ -31,14 +31,21 @@ jobs:
 
       - name: Download notebook_runner_nbclient.py
         run: |
-          # Download notebook_runner_nbclient.py from blueprint-github-test private repository
-          # Using GitLab API with Personal Access Token for authentication
+          # Clone blueprint-github-test private repository and extract notebook runner
+          # Using GitHub Personal Access Token for authentication
           # Token is stored in GitHub Secrets: BLUEPRINT_GITHUB_TEST_TOKEN
-          curl --header "PRIVATE-TOKEN: ${{ secrets.BLUEPRINT_GITHUB_TEST_TOKEN }}" \
-            -o notebook_runner_nbclient.py \
-            "https://gitlab-master.nvidia.com/cloud-service-qa/Blueprint/blueprint-github-test/-/raw/notebook_runner/utils/notebook_runner/notebook_runner_nbclient.py"
+          
+          # Clone the repository using token authentication
+          git clone https://oauth2:${{ secrets.BLUEPRINT_GITHUB_TEST_TOKEN }}@github.com/NVIDIA-AI-Blueprints/blueprint-github-test.git blueprint-github-test-temp
+          
+          # Copy the notebook runner file
+          cp blueprint-github-test-temp/utils/notebook_runner/notebook_runner_nbclient.py ./notebook_runner_nbclient.py
+          
+          # Cleanup temporary directory
+          rm -rf blueprint-github-test-temp
+          
           chmod +x notebook_runner_nbclient.py
-          echo "Downloaded notebook_runner_nbclient.py from blueprint-github-test (notebook_runner branch)"
+          echo "Downloaded notebook_runner_nbclient.py from NVIDIA-AI-Blueprints/blueprint-github-test"
 
       - name: Install dependencies
         run: |
